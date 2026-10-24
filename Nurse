@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2878d0">
+<title>ตารางเวรพยาบาล</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f7ff;color:#20344d;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:#2878d0;color:white;padding:25px 18px;
+border-radius:0 0 24px 24px}
+header h1{margin:0 0 6px;font-size:25px}
+header p{margin:0;font-size:14px}
+main{max-width:650px;margin:auto;padding:16px}
+.card{background:white;border-radius:18px;padding:18px;
+margin-bottom:15px;box-shadow:0 3px 12px #164b8010}
+h2{font-size:18px;margin:0 0 14px}
+label{display:block;font-size:14px;margin:12px 0 5px}
+input,select,textarea,button{font:inherit}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d5e2f1;
+border-radius:10px;background:white;color:#20344d}
+button{border:0;border-radius:10px;padding:12px;cursor:pointer}
+.primary{background:#2878d0;color:white;width:100%;margin-top:15px}
+.secondary{background:#e7f1ff;color:#205fa5}
+.danger{background:#fff0f0;color:#c03939}
+.monthbar{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.monthbar button{font-size:18px}
+#monthTitle{font-weight:bold;text-align:center}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:15px}
+.weekday{text-align:center;font-size:12px;color:#657b94;padding:5px 0}
+.day{min-height:66px;border-radius:9px;background:#f4f8fd;
+padding:5px 2px;text-align:center;font-size:13px;border:1px solid transparent}
+.day.today{border-color:#2878d0}
+.day.selected{background:#dcecff;border-color:#2878d0}
+.day .num{font-weight:600}
+.badge{display:block;font-size:10px;padding:3px 0;border-radius:5px;
+margin-top:4px;overflow:hidden}
+.morning{background:#fff0c7;color:#855900}
+.evening{background:#dceaff;color:#205fa5}
+.night{background:#e8defd;color:#6541a0}
+.off{background:#dff5e7;color:#217447}
+.other{background:#eee;color:#555}
+.item{display:flex;justify-content:space-between;align-items:center;
+gap:10px;padding:12px 0;border-bottom:1px solid #edf1f6}
+.item:last-child{border:0}
+.small{font-size:12px;color:#718096}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions button{flex:1}
+.empty{text-align:center;color:#8795a6;padding:18px 0}
+footer{text-align:center;color:#8495a9;font-size:12px;padding:8px 0 25px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🩺 ตารางเวรพยาบาล</h1>
+  <p>จัดตารางเวรง่าย ๆ ดูได้ทุกวัน</p>
+</header>
+
+<main>
+<section class="card">
+  <div class="monthbar">
+    <button class="secondary" id="prev">‹</button>
+    <div id="monthTitle"></div>
+    <button class="secondary" id="next">›</button>
+  </div>
+  <div class="calendar" id="calendar"></div>
+  <div class="small" style="margin-top:12px">
+    🟡 เวรเช้า　🔵 เวรบ่าย　🟣 เวรดึก　🟢 วันหยุด
+  </div>
+</section>
+
+<section class="card">
+  <h2>✏️ เพิ่มหรือแก้ไขเวร</h2>
+  <label for="date">วันที่</label>
+  <input id="date" type="date">
+
+  <label for="shift">ประเภทเวร</label>
+  <select id="shift">
+    <option value="เช้า">เวรเช้า</option>
+    <option value="บ่าย">เวรบ่าย</option>
+    <option value="ดึก">เวรดึก</option>
+    <option value="หยุด">วันหยุด</option>
+    <option value="อื่นๆ">อื่น ๆ</option>
+  </select>
+
+  <label for="note">หมายเหตุ (ไม่บังคับ)</label>
+  <input id="note" type="text" placeholder="เช่น เวรต่อเนื่อง">
+
+  <button class="primary" id="save">บันทึกเวร</button>
+  <p class="small">เลือกวันที่เดิมเพื่อแก้ไขเวรของวันนั้นได้</p>
+</section>
+
+<section class="card">
+  <h2>📋 เวรในเดือนนี้</h2>
+  <div id="list"></div>
+  <div class="actions" style="margin-top:14px">
+    <button class="secondary" id="export">ส่งออกตาราง CSV</button>
+    <button class="secondary" id="importBtn">นำเข้า CSV</button>
+  </div>
+  <input id="file" type="file" accept=".csv,text/csv"
+  style="display:none">
+  <p class="small">ไฟล์ CSV สามารถเปิดด้วย Excel ได้</p>
+</section>
+
+<footer>
+  ข้อมูลเวรถูกบันทึกไว้ในเบราว์เซอร์ของอุปกรณ์นี้
+</footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const thaiMonths = [
+"มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+"กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"
+];
+const today = new Date();
+let year = today.getFullYear();
+let month = today.getMonth();
+let selected = iso(today);
+let shifts = {};
+
+try {
+  shifts = JSON.parse(localStorage.getItem("nurse-shifts-v1") || "{}");
+} catch(e) {
+  shifts = {};
+}
+
+function iso(d) {
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+
+    "-"+String(d.getDate()).padStart(2,"0");
+}
+function saveData() {
+  try {
+    localStorage.setItem("nurse-shifts-v1",JSON.stringify(shifts));
+  } catch(e) {
+    alert("บันทึกไม่สำเร็จ กรุณาตรวจสอบพื้นที่จัดเก็บของเบราว์เซอร์");
+  }
+}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",
+    '"':"&quot;","'":"&#39;"
+  })[c]);
+}
+function shiftClass(s) {
+  return s==="เช้า"?"morning":s==="บ่าย"?"evening":
+    s==="ดึก"?"night":s==="หยุด"?"off":"other";
+}
+function render() {
+  $("monthTitle").textContent=thaiMonths[month]+" "+(year+543);
+  const cal=$("calendar");
+  cal.innerHTML="";
+  ["อา","จ","อ","พ","พฤ","ศ","ส"].forEach(w=>{
+    const el=document.createElement("div");
+    el.className="weekday";
+    el.textContent=w;
+    cal.appendChild(el);
+  });
+
+  const first=new Date(year,month,1).getDay();
+  const count=new Date(year,month+1,0).getDate();
+
+  for(let i=0;i<first;i++){
+    cal.appendChild(document.createElement("div"));
+  }
+  for(let d=1;d<=count;d++){
+    const key=iso(new Date(year,month,d));
+    const el=document.createElement("button");
+    el.className="day"+(key===iso(today)?" today":"")+
+      (key===selected?" selected":"");
+    const rec=shifts[key];
+    el.innerHTML='<div class="num">'+d+'</div>'+
+      (rec?'<span class="badge '+shiftClass(rec.shift)+'">'+
+      escapeHTML(rec.shift)+'</span>':"");
+    el.addEventListener("click",()=>{
+      selected=key;
+      $("date").value=key;
+      $("shift").value=rec?rec.shift:"เช้า";
+      $("note").value=rec?rec.note||"":"";
+      render();
+    });
+    cal.appendChild(el);
+  }
+  renderList();
+}
+function renderList() {
+  const entries=Object.keys(shifts).filter(k=>{
+    const d=k.split("-").map(Number);
+    return d[0]===year && d[1]===month+1;
+  }).sort();
+  const list=$("list");
+  if(!entries.length){
+    list.innerHTML='<div class="empty">ยังไม่มีเวรในเดือนนี้</div>';
+    return;
+  }
+  list.innerHTML=entries.map(k=>{
+    const r=shifts[k];
+    const parts=k.split("-").map(Number);
+    const date=new Date(parts[0],parts[1]-1,parts[2]);
+    const display=date.getDate()+" "+thaiMonths[date.getMonth()];
+    return '<div class="item"><div><strong>'+display+
+      '</strong><div><span class="badge '+shiftClass(r.shift)+'">'+
+      escapeHTML(r.shift)+'</span>'+
+      (r.note?'<div class="small">'+escapeHTML(r.note)+'</div>':"")+
+      '</div></div><div class="actions">'+
+      '<button class="secondary edit" data-date="'+k+'">แก้ไข</button>'+
+      '<button class="danger delete" data-date="'+k+'">ลบ</button>'+
+      '</div></div>';
+  }).join("");
+  list.querySelectorAll(".edit").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.date,r=shifts[k];
+    selected=k;$("date").value=k;$("shift").value=r.shift;
+    $("note").value=r.note||"";render();
+    window.scrollTo({top:0,behavior:"smooth"});
+  });
+  list.querySelectorAll(".delete").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.date;
+    if(confirm("ต้องการลบเวรวันที่ "+k+" ใช่ไหม?")){
+      delete shifts[k];saveData();render();
+    }
+  });
+}
+$("prev").onclick=()=>{
+  month--;if(month<0){month=11;year--;}render();
+};
+$("next").onclick=()=>{
+  month++;if(month>11){month=0;year++;}render();
+};
+$("date").value=selected;
+$("date").onchange=()=>{
+  if(!$("date").value)return;
+  selected=$("date").value;
+  const p=selected.split("-").map(Number);
+  year=p[0];month=p[1]-1;
+  const r=shifts[selected];
+  $("shift").value=r?r.shift:"เช้า";
+  $("note").value=r?r.note||"":"";
+  render();
+};
+$("save").onclick=()=>{
+  const k=$("date").value;
+  if(!k){alert("กรุณาเลือกวันที่");return;}
+  selected=k;
+  shifts[k]={shift:$("shift").value,note:$("note").value.trim()};
+  const p=k.split("-").map(Number);
+  year=p[0];month=p[1]-1;
+  saveData();render();
+  alert("บันทึกเวรแล้ว");
+};
+$("export").onclick=()=>{
+  const rows=[["วันที่","เวร","หมายเหตุ"],
+    ...Object.keys(shifts).sort().map(k=>
+      [k,shifts[k].shift,shifts[k].note||""])];
+  const csv="\uFEFF"+rows.map(row=>
+    row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")
+  ).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="nurse-shifts.csv";a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+$("importBtn").onclick=()=>$("file").click();
+$("file").onchange=async()=>{
+  const f=$("file").files[0];if(!f)return;
+  try{
+    const text=await f.text();
+    const lines=text.replace(/^\uFEFF/,"").trim().split(/\r?\n/);
+    let added=0;
+    for(let i=1;i<lines.length;i++){
+      const cols=lines[i].match(/("(?:[^"]|"")*"|[^,]*)(,|$)/g);
+      if(!cols)continue;
+      const vals=cols.map(v=>v.replace(/,$/,"").replace(/^"|"$/g,"")
+        .replace(/""/g,'"'));
+      if(/^\d{4}-\d{2}-\d{2}$/.test(vals[0]) &&
+         ["เช้า","บ่าย","ดึก","หยุด","อื่นๆ"].includes(vals[1])){
+        shifts[vals[0]]={shift:vals[1],note:vals[2]||""};added++;
+      }
+    }
+    saveData();render();
+    alert("นำเข้าข้อมูล "+added+" รายการ");
+  }catch(e){alert("อ่านไฟล์ไม่ได้ กรุณาตรวจสอบว่าเป็น CSV ที่ส่งออกจากแอป");}
+  $("file").value="";
+};
+render();
+</script>
+</body>
+</html>
